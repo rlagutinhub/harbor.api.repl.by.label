@@ -49,7 +49,7 @@ import ssl
 import sys
 import json
 import time
-import psutil
+# import psutil
 import base64
  
 from urllib.request import Request, urlopen
@@ -130,22 +130,25 @@ def harbor_api(url, data=None, username=None, password=None):
     except:
   
         return False
-  
-  
+
+
 def harbor_count_repo(repo_name, label_col):
-  
+
     harbor_count_repo_data = 0
-  
+    harbor_count_repo_res = dict()
+
     harbor_count_repo_items = harbor_api(HARBOR_URL_API + '/repositories/' + str(repo_name) + '/tags', username=HARBOR_USERNAME, password=HARBOR_PASSWORD)
-  
+
     if harbor_count_repo_items:
-  
+
+        tag_col_check = list()
+
         for harbor_count_repo_item in harbor_count_repo_items:
-              
+
             labels_items = harbor_count_repo_item['labels']
   
             if labels_items:
-                  
+
                 label_col_check = list()
   
                 for labels_item in labels_items:
@@ -154,22 +157,30 @@ def harbor_count_repo(repo_name, label_col):
   
                 label_col.sort()
                 label_col_check.sort()
-  
+
                 # print(str(repo_name) + ':' + str(harbor_count_repo_item['name']))
                 # print('label policy: ' + str(label_col))
                 # print('label repo: ' + str(label_col_check))
-  
+
                 if label_col == label_col_check:
-  
+
                     harbor_count_repo_data += 1
-  
+                    tag_col_check.append(harbor_count_repo_item['name'])
+
     else:
-  
+
         return False
-  
-    return harbor_count_repo_data
- 
- 
+
+    tag_col_check.sort()
+    harbor_count_repo_res = {
+        'repo_count': harbor_count_repo_data,
+        'repo_tags': tag_col_check
+    }
+
+    # return harbor_count_repo_data
+    return harbor_count_repo_res
+
+
 def harbor_col_repo(project_id, label_col):
   
     harbor_col_repo_data = list()
@@ -186,57 +197,59 @@ def harbor_col_repo(project_id, label_col):
             if repo_id and repo_name:
   
                 harbor_count_repo_res = harbor_count_repo(repo_name, label_col)
-  
-                if harbor_count_repo_res and harbor_count_repo_res > 0:
-  
-                    harbor_col_repo_data.append({'repo_id': repo_id, 'repo_name': repo_name, 'repo_count': harbor_count_repo_res})
+
+                if harbor_count_repo_res:
+
+                    if harbor_count_repo_res['repo_count'] > 0:
+
+                        harbor_col_repo_data.append({'repo_id': repo_id, 'repo_name': repo_name, 'repo_count': harbor_count_repo_res['repo_count'], 'repo_tags': harbor_count_repo_res['repo_tags']})
   
     else:
-          
+
         return False
-  
+
     return harbor_col_repo_data
-  
-  
+
+
 def harbor_col():
-  
+
     harbor_col_data = list()
-  
+
     harbor_api_items = harbor_api(HARBOR_URL_API + '/policies/replication', username=HARBOR_USERNAME, password=HARBOR_PASSWORD)
-      
+
     if not harbor_api_items:
-  
+
         return False
-  
+
     for harbor_api_item in harbor_api_items:
-  
+
         # print(json.dumps(harbor_api_item, indent=4))
         policy_name = False; policy_id = False; policy_description = False; project_name = False; project_id = False
-  
+
         if harbor_api_item.get('name', False) and harbor_api_item.get('id', False) and harbor_api_item.get('description', False) and harbor_api_item.get('projects', False) and harbor_api_item.get('filters', False):
-  
+
             try:
                 policy_name = harbor_api_item['name']
                 policy_id = harbor_api_item['id']
                 policy_description = harbor_api_item['description']
                 project_name = harbor_api_item['projects'][0]['name']
                 project_id = harbor_api_item['projects'][0]['project_id']
-  
+
             except:
                 pass
-  
+
             label_col = list()
-  
+
             for filter_item in harbor_api_item['filters']:
-  
+
                 if filter_item['kind'] == 'label':
-  
+
                     try:
                         label_col.append(filter_item['value']['name'])
-  
+
                     except:
                         pass
-  
+
         # print(policy_name, policy_id, policy_description, project_name, project_id, label)
         if policy_name and policy_id and policy_description and project_name and project_id and label_col:
   
@@ -246,105 +259,104 @@ def harbor_col():
                   
                 if harbor_col_repo_res:
   
-                    harbor_col_data.append({'policy_name': policy_name, 'policy_id': policy_id, 'policy_description': policy_description,
-                                                    'project_name': project_name, 'project_id': project_id, 'label': label_col, 'repo': harbor_col_repo_res})
-  
+                    harbor_col_data.append({'policy_name': policy_name, 'policy_id': policy_id, 'policy_description': policy_description, 'project_name': project_name, 'project_id': project_id, 'label': label_col, 'repo': harbor_col_repo_res})
+
     return harbor_col_data
-  
-  
+
+
 def harbor_col_save(harbor_col_file, harbor_col_data):
-  
+
     try:
         with open(harbor_col_file, 'wt', encoding='utf-8') as f:
             f.write(json.dumps(harbor_col_data, indent=4))
-  
+
         # os.chmod(harbor_col_file, 0o777)
-  
+
     except:
         return False
-  
+
     if os.path.exists(harbor_col_file) and os.path.isfile(harbor_col_file):
-  
+
         return True
-  
+
     else:
         return False
-  
-  
+
+
 def harbor_col_open(harbor_col_file):
-  
+
     if os.path.exists(harbor_col_file) and os.path.isfile(harbor_col_file):
-  
+
         try:
-            with open(harbor_col_file, 'r', encoding='utf-8') as f:
+            with open(harbor_col_file, 'rt', encoding='utf-8') as f:
                 return json.load(f)
-  
+
         except:
             return False
-              
+
     else:
         return False
- 
- 
+
+
 def harbor_col_delete(harbor_col_file):
- 
+
     if os.path.exists(harbor_col_file) and os.path.isfile(harbor_col_file):
- 
+
         try:
             os.remove(harbor_col_file)
- 
+
         except:
- 
+
             return False
- 
+
     return True
- 
- 
+
+
 def harbor_col_pars(harbor_col_res_new, harbor_col_res_old=None):
-  
+
     harbor_col_pars_data = list()
-  
+
     for harbor_col_res_new_item in harbor_col_res_new:
-  
+
         policy_id = harbor_col_res_new_item['policy_id']
         policy_name = harbor_col_res_new_item['policy_name']
-  
+
         policy_flag = False
-  
+
         if harbor_col_res_old:
-  
+
             for harbor_col_res_old_item in harbor_col_res_old:
-  
+
                 policy_id_old = harbor_col_res_old_item['policy_id']
                 policy_name_old = harbor_col_res_old_item['policy_name']
-  
+
                 if policy_id == policy_id_old and policy_name == policy_name_old:
-  
+
                     policy_flag = True
-  
+
                     if harbor_col_res_new_item['repo'] == harbor_col_res_old_item['repo']:
-  
+
                         # print(str(policy_name) + ': identical')
                         harbor_col_pars_data.append({'policy_name': str(policy_name), 'policy_id': policy_id, 'policy_status': 'identical'})
-  
+
                     else:
-  
+
                         # print(str(policy_name) + ': not identical')
                         harbor_col_pars_data.append({'policy_name': str(policy_name), 'policy_id': policy_id, 'policy_status': 'not identical'})
-  
+
         if not policy_flag:
-  
+
             # print(str(policy_name) + ': not found')
             harbor_col_pars_data.append({'policy_name': str(policy_name), 'policy_id': policy_id, 'policy_status': 'not found'})
-  
+
     if harbor_col_pars_data:
-  
+
         return harbor_col_pars_data
-  
+
     else:
          return False
-  
-  
+
+
 def harbor_repl_check(policy_id):
   
     harbor_repl_check_res = harbor_api(HARBOR_URL_API + '/jobs/replication?policy_id=' + str(policy_id), username=HARBOR_USERNAME, password=HARBOR_PASSWORD)
@@ -646,4 +658,3 @@ def main():
 if __name__ == '__main__':
  
     sys.exit(main())
-
