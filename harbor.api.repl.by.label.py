@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
- 
- 
+
+
 # ----------------------------------------------------------------------------------------------------
 # NAME:   HARBOR.API.REPL.BY.LABEL.PY
 # DESC:   CHECK NEW IMAGES IN REPO WITH ASSIGNED LABEL(S) AND START REPLICATION IF REQURED
@@ -11,51 +11,52 @@
 # EMAIL:  RLAGUTIN@MTA4.RU
 # ----------------------------------------------------------------------------------------------------
 # Harbor Rest API
- 
+
 # http://editor.swagger.io/
 # https://raw.githubusercontent.com/goharbor/harbor/master/docs/swagger.yaml
 # https://community.pivotal.io/s/article/How-to-Browse-and-Query-Harbor-Registry-using-REST-API
- 
+
 # Create project
 # curl -u "admin:1qaz@WSX" -i -k -X POST -H "Content-Type: application/json" -d "{"project_name":"dev2"}" "https://reg.dev.mta4.ru/api/projects?project"
- 
+
 # List of all repositories
 # curl -u "admin:1qaz@WSX" -i -k -X GET -H "Content-type: application/json" "https://reg.dev.mta4.ru/api/repositories?project_id=1"
- 
+
 # List of all images include labels for repository
 # curl -u "admin:1qaz@WSX" -i -k -X GET -H "Content-type: application/json" "https://reg.dev.mta4.ru/api/repositories/dev/hello/tags"
- 
+
 # List of all policies
 # curl -u "admin:1qaz@WSX" -i -k -X GET -H "Content-type: application/json" "https://reg.dev.mta4.ru/api/policies/replication"
- 
+
 # Job Status of replication (running or finishing)
 # curl -u "admin:1qaz@WSX" -i -k -X GET -H "Content-type: application/json" "https://reg.dev.mta4.ru/api/jobs/replication?policy_id=13"
- 
+
 # Manual execution replication
 # curl -u "admin:1qaz@WSX" -i -k -X POST -H "Content-type: application/json" -d "{"policy_id":13}" "https://reg.dev.mta4.ru/api/replications"
- 
+
 # Other
 # curl -u "admin:1qaz@WSX" -i -k -X GET -H "Content-type: application/json" "https://reg.dev.mta4.ru/api/systeminfo"
 # curl -u "admin:1qaz@WSX" -i -k -X GET -H "Content-type: application/json" "https://reg.dev.mta4.ru/api/projects"
 # curl -u "admin:1qaz@WSX" -i -k -X GET -H "Content-type: application/json" "https://reg.dev.mta4.ru/api/repositories/dev/hello/labels"
 # ----------------------------------------------------------------------------------------------------
- 
+
 # Usage:
 #        /home/lagutinra/Документы/harbor/harbor.api.repl.by.label.py -exec [inc|full]
- 
- 
+
+
 import os
 import ssl
 import sys
 import json
 import time
-# import psutil
 import base64
- 
+# import psutil
+
+
 from urllib.request import Request, urlopen
 from urllib.error import URLError
- 
- 
+
+
 HARBOR_URL_API = 'https://reg.dev.mta4.ru/api'
 HARBOR_USERNAME = 'admin'
 HARBOR_PASSWORD = '1qaz@WSX'
@@ -65,14 +66,14 @@ HARBOR_POLICY_ATTEMPT_COUNT_DELAY = 30
 HARBOR_SCRIPTNAME = os.path.abspath(__file__)
 HARBOR_SCRIPTNAME_PID = os.path.dirname(HARBOR_SCRIPTNAME) + '/' + os.path.basename(HARBOR_SCRIPTNAME) + '.pid'
 HARBOR_SCRIPTNAME_JSON = os.path.dirname(HARBOR_SCRIPTNAME) + '/' + os.path.basename(HARBOR_SCRIPTNAME) + '.json'
- 
+
 HARBOR_REPL_RESULT = list() # return main()
- 
+
 INSECURE_CONTEXT = ssl._create_unverified_context()
- 
- 
+
+
 class bcolors(object):
- 
+
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
@@ -81,8 +82,8 @@ class bcolors(object):
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
- 
- 
+
+
 def harbor_api(url, data=None, username=None, password=None):
     '''
     # GET anonymous
